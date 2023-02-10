@@ -1,4 +1,6 @@
 # Zero-shot-Fact-Verification-by-Claim-Generation
+***This is a fork by AIC***
+
 This repository contains code and models for the paper: [Zero-shot Fact Verification by Claim Generation (ACL-IJCNLP 2021)](). 
 
 - We explore the possibility of automatically **generating large-scale (evidence, claim) pairs** to train the fact verification model. 
