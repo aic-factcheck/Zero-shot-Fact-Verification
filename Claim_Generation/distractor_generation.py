@@ -1,14 +1,16 @@
 from sense2vec import Sense2Vec
 import string
 from collections import OrderedDict
-import random
+import numpy as np
 
 class Distractor_Generation():
-    def __init__(self, sense2vec_path, T):
+    def __init__(self, sense2vec_path, T, seed=1234):
         self.sense2vec = Sense2Vec().from_disk(sense2vec_path)
         self.T = T
+        self.rng = np.random.RandomState(seed) # dhonza added for reproducibility
 
-    def get_options(self, answer):
+    # def get_options(self, answer): # ORIGINAL
+    def get_options(self, answer, **kwargs): # dhonza: extended interface for other approaches
         distractors =[]
         try:
             distractors = self.sense2vec_get_words(answer)
@@ -50,7 +52,7 @@ class Distractor_Generation():
         #     candidates.append((append_word, word_type))
 
         self.candidates = candidates
-        output = random.sample(candidates, 1)[0]
+        output = self.rng.choice(candidates)
         return output
 
 if __name__ == "__main__":
