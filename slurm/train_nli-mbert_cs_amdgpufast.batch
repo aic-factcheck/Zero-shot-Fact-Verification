@@ -1,0 +1,75 @@
+#!/bin/bash
+#SBATCH --time=4:00:00
+#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=4
+#SBATCH --partition=amdgpufast --gres=gpu:1
+#SBATCH --mem=64G
+#SBATCH --out=../logs/nli_cs-mbert.%j.out
+
+# if PROJECT_DIR is not defined, then expect we are in ${PROJECT_DIR}/slurm
+if [[ -z "${PROJECT_DIR}" ]]; then
+    export PROJECT_DIR="$(dirname "$(pwd)")"
+fi
+
+if [ -f "${PROJECT_DIR}/init_environment_hflarge_amd.sh" ]; then
+    source "${PROJECT_DIR}/init_environment_hflarge_amd.sh"
+fi
+
+cd ${PROJECT_DIR}
+pwd
+
+export LANG=cs_CZ
+export LANG_SHORT=cs
+
+export DATA_ROOT="/mnt/data/factcheck/wiki/${LANG_SHORT}/20230220/qacg"
+export NER_DIR="PAV-ner-CNEC"
+export QG_DIR="mt5-large-cp59k"
+export QA2D_DIR="mbart-large-cc25_cp26k"
+
+export TRAIN_DIR=claim
+export NLI_ROOT="${DATA_ROOT}/${TRAIN_DIR}/${NER_DIR}/${QG_DIR}/${QA2D_DIR}"
+
+echo "NLI_ROOT="${NLI_ROOT}
+
+export MODEL_SHORT="bert-base-multilingual-cased"
+export MODEL="${MODEL_SHORT}"
+export COLUMN_SEPARATOR="[SEP]"
+
+export EXP_DIR="nli/${MODEL}_${LANG}${SUFFIX}"
+export WANDB_NAME="NLI-${LANG_SHORT}: ${MODEL_SHORT}${SUFFIX}"
+export WANDB_PROJECT="huggingface"
+
+export PYTHONPATH=.:$PYTHONPATH
+
+    # --num_train_epochs 50 \
+    # --evaluation_strategy epoch \
+    # --save_strategy epoch \
+    # --metric_name f1 \
+
+python scripts/run_classification.py \
+    --model_name_or_path $MODEL \
+    --do_train \
+    --do_eval \
+    --do_predict \
+    --train_file "$NLI_ROOT/train_nli.jsonl" \
+    --validation_file "$NLI_ROOT/dev_nli.jsonl"  \
+    --test_file "$NLI_ROOT/test_nli.jsonl"  \
+    --output_dir experiments/$EXP_DIR \
+    --overwrite_output_dir \
+    --per_device_train_batch_size=32 \
+    --per_device_eval_batch_size=128 \
+    --fp16 \
+    --text_column_names "claim:context" \
+    --text_column_delimiter ${COLUMN_SEPARATOR}\
+    --label_column_name "label" \
+    --seed 42 \
+    --use_fast_tokenizer \
+    --learning_rate 5e-04 \
+    --logging_first_step True \
+    --logging_steps 32 \
+    --eval_steps 32 \
+    --save_steps 32 \
+    --max_steps 16384 \
+    --evaluation_strategy steps \
+    --save_strategy steps \
+    --save_total_limit 3 \
+    --load_best_model_at_end True

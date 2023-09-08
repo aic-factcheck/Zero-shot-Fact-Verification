@@ -1,0 +1,89 @@
+#!/bin/bash
+#SBATCH --time=72:00:00
+#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=4
+#SBATCH --partition=amdgpulong --gres=gpu:1
+#SBATCH --mem=64G
+#SBATCH --out=../logs/nli-enfever-umt5.%j.out
+
+# if PROJECT_DIR is not defined, then expect we are in ${PROJECT_DIR}/slurm
+if [[ -z "${PROJECT_DIR}" ]]; then
+    export PROJECT_DIR="$(dirname "$(pwd)")"
+fi
+
+if [ -f "${PROJECT_DIR}/init_environment_hflarge_amd.sh" ]; then
+    source "${PROJECT_DIR}/init_environment_hflarge_amd.sh"
+fi
+
+cd ${PROJECT_DIR}
+pwd
+
+export LANG=en_US
+export LANG_SHORT=en
+
+export NLI_ROOT="/mnt/data/factcheck/NLI/nli_fever_cls"
+
+echo "NLI_ROOT="${NLI_ROOT}
+
+export MODEL_SHORT="umt5-base"
+export MODEL="google/$MODEL_SHORT"
+export COLUMN_SEPARATOR="</s>"
+export per_device_train_batch_size=8
+export gradient_accumulation_steps=4
+export per_device_eval_batch_size=32
+
+export SUFFIX=""
+# export SUFFIX="_sr"
+
+export EXP_DIR="nli_fever/${MODEL}_${LANG}${SUFFIX}"
+export WANDB_NAME="NLI-${LANG_SHORT}FEVER: ${MODEL_SHORT}${SUFFIX}"
+export WANDB_PROJECT="huggingface"
+
+# export EVAL_STEPS=32
+export EVAL_STEPS=128
+export PYTHONPATH=.:$PYTHONPATH
+
+    # --do_predict \
+    # --label_smoothing_factor 0.1 \
+    # --weight_decay 0.01 \
+    # --adam_beta1 0.9 \
+    # --adam_beta2 0.999 \
+    # --adam_epsilon 1e-08 \
+    # --gradient_checkpointing \
+    # --lr_scheduler_type polynomial \
+    # --max_grad_norm 0.1 \
+    # --predict_with_generate True \
+    # --max_steps 1024 \
+    # --resume_from_checkpoint /home/drchajan/devel/python/FC/Zero-shot-Fact-Verification/experiments/nli/google/umt5-base_cs_CZ-20230801/checkpoint-75904
+
+python scripts/run_seq2seq.py \
+    --model_name_or_path $MODEL \
+    --do_train \
+    --do_eval \
+    --train_file "$NLI_ROOT/train_nli${SUFFIX}.jsonl" \
+    --validation_file "$NLI_ROOT/dev_nli${SUFFIX}.jsonl"  \
+    --test_file "$NLI_ROOT/test_nli${SUFFIX}.jsonl"  \
+    --num_beams 10 \
+    --output_dir experiments/$EXP_DIR \
+    --overwrite_output_dir \
+    --bf16 \
+    --per_device_train_batch_size $per_device_train_batch_size \
+    --gradient_accumulation_steps $gradient_accumulation_steps \
+    --per_device_eval_batch_size $per_device_eval_batch_size \
+    --input_columns "claim:context" \
+    --target_columns "label" \
+    --column_separator "${COLUMN_SEPARATOR}"\
+    --ignore_pad_token_for_loss $IGNORE_PAD_TOKEN_FOR_LOSS \
+    --seed 43 \
+    --learning_rate 2e-05 \
+    --warmup_steps 100 \
+    --evaluation_strategy steps \
+    --eval_steps $EVAL_STEPS \
+    --save_steps $EVAL_STEPS \
+    --logging_steps $EVAL_STEPS \
+    --logging_first_step True \
+    --num_train_epochs 10\
+    --save_total_limit 5 \
+    --load_best_model_at_end True \
+    --max_source_length 1024 \
+    --max_target_length 128 \
+    --optim "adamw_torch" \

@@ -33,6 +33,7 @@ import os
 import sys
 
 import datasets
+import evaluate
 import numpy as np
 from datasets import load_dataset
 
@@ -46,9 +47,9 @@ from transformers import (
 from transformers.utils import check_min_version, send_example_telemetry
 from transformers.utils.versions import require_version
 
-from arguments import ModelArguments, DataTrainingArguments
-from load import load_tokenizer_and_model, find_last_checkpoint
-from metrics import ROUGEMetric
+from zshot_fact_verify.models.arguments import ModelArguments, DataTrainingArguments
+from zshot_fact_verify.models.load import load_tokenizer_and_model, find_last_checkpoint
+from zshot_fact_verify.models.metrics import ROUGEMetric
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 check_min_version("4.26.0")
@@ -102,6 +103,7 @@ def get_raw_datasets(model_args, data_args):
         if data_args.test_file is not None:
             data_files["test"] = data_args.test_file
             extension = data_args.test_file.split(".")[-1]
+        extension = "json" if extension.lower() == "jsonl" else extension # load_dataset needs this :(
         raw_datasets = load_dataset(
             extension,
             data_files=data_files,
@@ -221,10 +223,6 @@ def main():
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
-    # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
-    # information sent is the one passed as arguments along with your Python/PyTorch versions.
-    send_example_telemetry("run_seq2seq", model_args, data_args)
-
     # Setup logging
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
@@ -326,6 +324,10 @@ def main():
 
     # Metric
     rouge = ROUGEMetric(tokenizer, data_args.ignore_pad_token_for_loss)
+    compute_metrics = rouge.compute_metrics
+
+    # compute_metrics = evaluate.load("exact_match")
+    # compute_metrics = None
 
     # Initialize our Trainer
     trainer = Seq2SeqTrainer(
@@ -335,7 +337,7 @@ def main():
         eval_dataset=eval_dataset if training_args.do_eval else None,
         tokenizer=tokenizer,
         data_collator=data_collator,
-        compute_metrics=rouge.compute_metrics if training_args.predict_with_generate else None,
+        compute_metrics=compute_metrics if training_args.predict_with_generate else None,
     )
 
     # Training

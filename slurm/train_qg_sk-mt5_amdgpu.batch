@@ -3,54 +3,45 @@
 #SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=4
 #SBATCH --partition=amdgpu --gres=gpu:1
 #SBATCH --mem=64G
-#SBATCH --out=../logs/qg_train_mt5.%j.out
+#SBATCH --out=../logs/qg-sk-train_mt5.%j.out
 
 # if PROJECT_DIR is not defined, then expect we are in ${PROJECT_DIR}/slurm
 if [[ -z "${PROJECT_DIR}" ]]; then
     export PROJECT_DIR="$(dirname "$(pwd)")"
 fi
 
-if [ -f "${PROJECT_DIR}/init_environment_plight_amd.sh" ]; then
-    source "${PROJECT_DIR}/init_environment_plight_amd.sh"
+if [ -f "${PROJECT_DIR}/init_environment_hflarge_amd.sh" ]; then
+    source "${PROJECT_DIR}/init_environment_hflarge_amd.sh"
 fi
-
 
 cd ${PROJECT_DIR}
 
 export PYTHONPATH=src:$PYTHONPATH
 
-export DATASET=/mnt/data/factcheck/qg/squad-cs
+export DATASET=/mnt/data/factcheck/qg/sk-quad-220614
 
-# export MODEL="google/mt5-base"
-# export per_device_train_batch_size=4
-# export gradient_accumulation_steps=1
-
-export MODEL="google/mt5-large"
+export MODEL_SHORT="mt5-large"
+export MODEL="google/${MODEL_SHORT}"
 export per_device_train_batch_size=2
 export gradient_accumulation_steps=2
 
-# export MODEL="google/mt5-xl"
-# export per_device_train_batch_size=1
-# export gradient_accumulation_steps=4
+export LANG=sk_SK
+export LANG_SHORT=sk
 
-export LANG=cs_CZ
-export SUFFIX="_hl"
+# export SUFFIX="_hl"
+    # --highlight \
 
-export EXP_DIR="qg/${MODEL}_${LANG}${SUFFIX}"
+export EXP_DIR="qg/${MODEL}_${LANG_SHORT}${SUFFIX}"
+export WANDB_NAME="QG-${LANG_SHORT}: ${MODEL_SHORT}${SUFFIX}"
 
-# deepspeed src/train_summarization_bart.py --deepspeed cfg/ds_config_zero2.json
-# deepspeed --num_gpus=4 src/train_summarization_bart.py --deepspeed cfg/ds_config_zero2.json
-
-# python scripts/training/run_summarization.py --help
-
-export PYTHONPATH=Models:$PYTHONPATH
+export PYTHONPATH=.:$PYTHONPATH
 
 python scripts/run_seq2seq.py \
     --model_name_or_path $MODEL \
     --do_train \
     --do_eval \
-    --train_file "$DATASET/train-v1.1.json" \
-    --validation_file "$DATASET/dev-v1.1.json"  \
+    --train_file "$DATASET/sk-quad-220614-train.json" \
+    --validation_file "$DATASET/sk-quad-220614-dev.json"  \
     --num_beams 10 \
     --output_dir experiments/$EXP_DIR \
     --overwrite_output_dir \
@@ -59,7 +50,6 @@ python scripts/run_seq2seq.py \
     --per_device_train_batch_size $per_device_train_batch_size \
     --per_device_eval_batch_size 1 \
     --gradient_accumulation_steps $gradient_accumulation_steps \
-    --highlight \
     --input_columns "answer:context" \
     --target_columns question \
     --column_separator "</s>"\
@@ -80,16 +70,8 @@ python scripts/run_seq2seq.py \
     --save_steps 1000 \
     --prediction_loss_only True\
     --predict_with_generate True\
-    --save_total_limit 30 \
+    --save_total_limit 3 \
+    --load_best_model_at_end True \
     --max_source_length 1024 \
     --max_target_length 128 \
-#   --fp16 \ # there are problems with MT5 and fp16, see https://github.com/huggingface/transformers/issues/10830
-#   --use_fast_tokenizer \
-#   --max-tokens 4096 \
-#   --update-freq 8 \
-#   --max-update 800000 \
-#   --required-batch-size-multiple 1 \
-#   --dropout 0.1 \
-#   --attention-dropout 0.1 \
-#   --relu-dropout 0.0 \
-#   --total-num-update 800000 \
+    --resume_from_checkpoint /mnt/personal/drchajan/devel/python/FC/Zero-shot-Fact-Verification/experiments/qg/google/mt5-large_sk_SK/checkpoint-37000
