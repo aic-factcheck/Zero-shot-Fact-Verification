@@ -1,0 +1,76 @@
+#!/bin/bash
+#SBATCH --time=4:00:00
+#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=4
+#SBATCH --partition=amdgpufast --gres=gpu:1
+#SBATCH --mem=64G
+#SBATCH --out=../logs/claim_quality_cs-mbert_amdgpu.%j.out
+
+# if PROJECT_DIR is not defined, then expect we are in ${PROJECT_DIR}/slurm
+if [[ -z "${PROJECT_DIR}" ]]; then
+    export PROJECT_DIR="$(dirname "$(pwd)")"
+fi
+
+if [ -f "${PROJECT_DIR}/init_environment_hflarge_amd.sh" ]; then
+    source "${PROJECT_DIR}/init_environment_hflarge_amd.sh"
+fi
+
+cd ${PROJECT_DIR}
+pwd
+
+export LANG=cs_CZ
+export LANG_SHORT=cs
+
+export DATA_ROOT="/mnt/data/factcheck/wiki/${LANG_SHORT}/20230220/qacg"
+export NER_DIR="PAV-ner-CNEC"
+export QG_DIR="mt5-large-cp59k"
+export QA2D_DIR="mbart-large-cc25_cp26k"
+
+# export SUFFIX= # 600 samples
+# export SUFFIX="_v2" # 998 samples
+export SUFFIX="_v3" # 1401 samples
+export CLAIM_QUALITY_DIR=claim_quality${SUFFIX}
+export CLAIM_QUALITY_ROOT="${DATA_ROOT}/${CLAIM_QUALITY_DIR}/${NER_DIR}/${QG_DIR}/${QA2D_DIR}"
+
+echo "CLAIM_QUALITY_ROOT="${CLAIM_QUALITY_ROOT}
+
+export MODEL_SHORT="bert-base-multilingual-cased"
+export MODEL="${MODEL_SHORT}"
+
+export EXP_DIR="cq/${MODEL}_${LANG}${SUFFIX}"
+export WANDB_NAME="CQ-${LANG_SHORT}: ${MODEL_SHORT}${SUFFIX}"
+export WANDB_PROJECT="huggingface"
+
+export PYTHONPATH=.:$PYTHONPATH
+
+    # --num_train_epochs 50 \
+    # --evaluation_strategy epoch \
+    # --save_strategy epoch \
+    # --metric_name f1 \
+
+python scripts/run_classification.py \
+    --model_name_or_path $MODEL \
+    --do_train \
+    --do_eval \
+    --do_predict \
+    --train_file "$CLAIM_QUALITY_ROOT/train.jsonl" \
+    --validation_file "$CLAIM_QUALITY_ROOT/dev.jsonl"  \
+    --test_file "$CLAIM_QUALITY_ROOT/test.jsonl"  \
+    --output_dir experiments/$EXP_DIR \
+    --overwrite_output_dir \
+    --per_device_train_batch_size=32 \
+    --per_device_eval_batch_size=32 \
+    --fp16 \
+    --text_column_names "text" \
+    --label_column_name "label" \
+    --seed 42 \
+    --use_fast_tokenizer \
+    --learning_rate 5e-04 \
+    --logging_first_step True \
+    --logging_steps 32 \
+    --eval_steps 32 \
+    --save_steps 32 \
+    --max_steps 16384 \
+    --evaluation_strategy steps \
+    --save_strategy steps \
+    --save_total_limit 10 \
+    --load_best_model_at_end True

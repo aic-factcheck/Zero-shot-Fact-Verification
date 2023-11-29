@@ -1,0 +1,76 @@
+#!/bin/bash
+#SBATCH --time=24:00:00
+#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=4
+#SBATCH --partition=amdgpu --gres=gpu:1
+#SBATCH --mem=64G
+#SBATCH --out=../logs/qa2d-sk-train_mt5.%j.out
+
+# if PROJECT_DIR is not defined, then expect we are in ${PROJECT_DIR}/slurm
+if [[ -z "${PROJECT_DIR}" ]]; then
+    export PROJECT_DIR="$(dirname "$(pwd)")"
+fi
+
+if [ -f "${PROJECT_DIR}/init_environment_hflarge_amd.sh" ]; then
+    source "${PROJECT_DIR}/init_environment_hflarge_amd.sh"
+fi
+
+cd ${PROJECT_DIR}
+
+export LANG=sk_SK
+export LANG_SHORT=sk
+
+export MODEL_SHORT="mt5-large"
+export MODEL="google/${MODEL_SHORT}"
+export per_device_train_batch_size=2
+export gradient_accumulation_steps=2
+
+export DATASET=/mnt/data/factcheck/qa2d/$LANG_SHORT
+
+export EXP_DIR="qa2d/${MODEL}_${LANG}${SUFFIX}"
+export WANDB_NAME="QA2D-${LANG_SHORT}: ${MODEL_SHORT}${SUFFIX}"
+export WANDB_PROJECT="huggingface"
+
+export EXP_DIR="qa2d/${MODEL}_${LANG}${SUFFIX}"
+
+export PYTHONPATH=.:$PYTHONPATH
+
+python scripts/run_seq2seq.py \
+    --model_name_or_path $MODEL \
+    --do_train \
+    --do_eval \
+    --lang $LANG \
+    --train_file "$DATASET/train.jsonl" \
+    --validation_file "$DATASET/dev.jsonl"  \
+    --num_beams 10 \
+    --output_dir experiments/$EXP_DIR \
+    --overwrite_output_dir \
+    --predict_with_generate \
+    --gradient_checkpointing \
+    --per_device_train_batch_size $per_device_train_batch_size \
+    --per_device_eval_batch_size 1 \
+    --gradient_accumulation_steps $gradient_accumulation_steps \
+    --input_columns "answer:question" \
+    --target_columns turker_answer \
+    --column_separator "</s>"\
+    --seed 42 \
+    --use_fast_tokenizer \
+    --label_smoothing_factor 0.1 \
+    --weight_decay 0.01 \
+    --adam_beta1 0.9 \
+    --adam_beta2 0.999 \
+    --adam_epsilon 1e-08 \
+    --num_train_epochs 10 \
+    --learning_rate 3e-05 \
+    --lr_scheduler_type polynomial \
+    --max_grad_norm 0.1 \
+    --warmup_steps 500 \
+    --evaluation_strategy steps \
+    --eval_steps 1000 \
+    --max_eval_samples 40000 \
+    --save_steps 1000 \
+    --prediction_loss_only True\
+    --predict_with_generate True\
+    --save_total_limit 3 \
+    --load_best_model_at_end True \
+    --max_source_length 1024 \
+    --max_target_length 128

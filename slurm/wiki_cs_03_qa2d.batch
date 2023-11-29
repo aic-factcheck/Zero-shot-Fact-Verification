@@ -22,4 +22,4 @@ export PYTHONPATH=.:$PYTHONPATH
 # CFG=/home/drchajan/devel/python/FC/Zero-shot-Fact-Verification/cfg/wiki_cs/qa2d/mt5-large.config.py
 # CFG=/home/drchajan/devel/python/FC/Zero-shot-Fact-Verification/cfg/wiki_cs/qa2d/umt5-base_all.config.py
 CFG=/home/drchajan/devel/python/FC/Zero-shot-Fact-Verification/cfg/wiki_cs/qa2d/mt5-large_all.config.py
-python scripts/wiki_qa2d.py $CFG
+python scripts/qa2d.py $CFG

@@ -19,5 +19,5 @@ cd ${PROJECT_DIR}
 export PYTHONPATH=.:$PYTHONPATH
 
 CFG=/home/drchajan/devel/python/FC/Zero-shot-Fact-Verification/cfg/wiki_cs/ners/czert-ner.config.py
-python scripts/wiki_extract_ners.py $CFG
+python scripts/extract_ners.py $CFG
 

@@ -21,4 +21,4 @@ CFG=/home/drchajan/devel/python/FC/Zero-shot-Fact-Verification/cfg/wiki_cs/qg/mt
 # CFG=/home/drchajan/devel/python/FC/Zero-shot-Fact-Verification/cfg/wiki_cs/qg/mt5-large.config.py
 # CFG=/home/drchajan/devel/python/FC/Zero-shot-Fact-Verification/cfg/wiki_cs/qg/flan-t5-large.config.py
 # CFG=/home/drchajan/devel/python/FC/Zero-shot-Fact-Verification/cfg/wiki_cs/qg/umt5-base.config.py
-python scripts/wiki_qg.py $CFG
+python scripts/qg.py $CFG

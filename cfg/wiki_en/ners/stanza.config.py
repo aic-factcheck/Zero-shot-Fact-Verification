@@ -27,7 +27,7 @@ def config():
         "wiki_root": WIKI_ROOT,
         "qacg_root": QACG_ROOT,
         "ner_root": NER_ROOT,
-        "wiki_corpus": WIKI_CORPUS,
+        "corpus": WIKI_CORPUS,
         "nei_documents": 2,
         "splits": [
             {"name": "train", "file": Path(NER_ROOT, "train_ners.json"), "size": 10000},

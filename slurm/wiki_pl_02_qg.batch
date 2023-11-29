@@ -20,4 +20,4 @@ export PYTHONPATH=.:$PYTHONPATH
 
 CFG=/home/drchajan/devel/python/FC/Zero-shot-Fact-Verification/cfg/wiki_pl/qg/mt5-large_all.config.py
 # CFG=/home/drchajan/devel/python/FC/Zero-shot-Fact-Verification/cfg/wiki_pl/qg/mt5-large.consfig.py
-python scripts/wiki_qg.py $CFG
+python scripts/qg.py $CFG

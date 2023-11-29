@@ -19,8 +19,8 @@ def config():
     QG_DIR = "mt5-large_all-cp126k"
     QG_ROOT = Path(QACG_ROOT, "qg", NER_DIR, QG_DIR)
 
-    MODEL_NAME = f"/mnt/personal/drchajan/devel/python/FC/Zero-shot-Fact-Verification/experiments/qa2d/google/mt5-large_all/BKP/checkpoint-130000"
-    MODEL_SHORT = "mt5-large_all-cp130k"
+    MODEL_NAME = f"/mnt/personal/drchajan/devel/python/FC/Zero-shot-Fact-Verification/experiments/qa2d/google/mt5-large_all/BKP/checkpoint-156000"
+    MODEL_SHORT = "mt5-large_all-cp156k"
 
     CLAIM_ROOT = Path(QACG_ROOT, "claim", NER_DIR, QG_DIR, MODEL_SHORT)
     CLAIM_TYPES = ["support", "refute", "nei"]
@@ -42,7 +42,7 @@ def config():
         "claim_root": CLAIM_ROOT,
         "claim_types": CLAIM_TYPES,
         "model_name": MODEL_NAME,
-        "wiki_corpus": WIKI_CORPUS,
+        "corpus": WIKI_CORPUS,
         "nei_documents": 2,
         "splits": [
             {"name": "train", "file": Path(NER_ROOT, "train_ners.json"), "size": int(10000*SCALE)},

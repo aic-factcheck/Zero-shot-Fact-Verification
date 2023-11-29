@@ -1,0 +1,85 @@
+#!/bin/bash
+#SBATCH --time=24:00:00
+#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=4
+#SBATCH --partition=amdgpu --gres=gpu:1
+#SBATCH --mem=64G
+#SBATCH --out=../logs/wiki_sk_04b_train_nli_zero_input.%j.out
+
+
+# if PROJECT_DIR is not defined, then expect we are in ${PROJECT_DIR}/slurm
+if [[ -z "${PROJECT_DIR}" ]]; then
+    export PROJECT_DIR="$(dirname "$(pwd)")"
+fi
+
+if [ -f "${PROJECT_DIR}/init_environment_hflarge_amd.sh" ]; then
+    source "${PROJECT_DIR}/init_environment_hflarge_amd.sh"
+fi
+
+cd ${PROJECT_DIR}
+pwd
+
+export APPROACH="balanced"
+export LANG=sk_SK
+export LANG_SHORT=sk
+
+export DATE=20230801
+export DATE_SHORT="23.8"
+export DATA_ROOT="/mnt/data/factcheck/wiki/${LANG_SHORT}/${DATE}/qacg"
+export NER_DIR="crabz_slovakbert-ner"
+export QG_DIR="mt5-large_all-cp126k"
+export QA2D_DIR="mt5-large_all-cp156k"
+
+export TRAIN_DIR=nli
+export NLI_ROOT="${DATA_ROOT}/${TRAIN_DIR}/${NER_DIR}/${QG_DIR}/${QA2D_DIR}"
+
+echo "NLI_ROOT="${NLI_ROOT}
+
+export MODEL_SHORT="xlm-roberta-large-squad2"
+export MODEL="deepset/${MODEL_SHORT}"
+export COLUMN_SEPARATOR="</s>"
+
+# default batch size=4
+export SUFFIX="_${APPROACH}_lr1e-6_zero_input"
+export EXP_DIR="nli/${MODEL}_${LANG}-${DATE}${SUFFIX}"
+export WANDB_NAME="NLI0-${LANG_SHORT}${DATE_SHORT}: ${MODEL_SHORT}${SUFFIX}"
+export WANDB_PROJECT="huggingface"
+
+export PYTHONPATH=.:$PYTHONPATH
+
+    # --num_train_epochs 50 \
+    # --evaluation_strategy epoch \
+    # --save_strategy epoch \
+    # --metric_name f1 \
+    # --resume_from_checkpoint /home/drchajan/devel/python/FC/Zero-shot-Fact-Verification/experiments/nli/deepset/xlm-roberta-large-squad2_cs_CZ-20230801_balanced_lr1e-6/checkpoint-169920
+
+python scripts/run_classification.py \
+    --model_name_or_path $MODEL \
+    --do_train \
+    --do_eval \
+    --do_predict \
+    --train_file "$NLI_ROOT/train_${APPROACH}.jsonl" \
+    --validation_file "$NLI_ROOT/dev_${APPROACH}.jsonl"  \
+    --test_file "$NLI_ROOT/test_${APPROACH}.jsonl"  \
+    --output_dir experiments/$EXP_DIR \
+    --overwrite_output_dir \
+    --per_device_train_batch_size=4 \
+    --per_device_eval_batch_size=128 \
+    --fp16 \
+    --zero_input True \
+    --label_column_name "label" \
+    --seed 42 \
+    --use_fast_tokenizer \
+    --learning_rate 1e-06 \
+    --max_grad_norm 1.0\
+    --weight_decay 0.01\
+    --logging_first_step True \
+    --logging_steps 32 \
+    --eval_steps 32 \
+    --save_steps 32 \
+    --num_train_epochs 100\
+    --evaluation_strategy steps \
+    --save_strategy steps \
+    --save_total_limit 3 \
+    --metric_for_best_model accuracy\
+    --load_best_model_at_end True
+    

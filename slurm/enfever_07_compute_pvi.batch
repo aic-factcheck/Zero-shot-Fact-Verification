@@ -1,0 +1,25 @@
+#!/bin/bash
+#SBATCH --time=4:00:00
+#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=4
+#SBATCH --partition=amdgpufast --gres=gpu:1
+#SBATCH --mem=64G
+#SBATCH --out=../logs/enfever_07_compute_pvi.%j.out
+
+
+# if PROJECT_DIR is not defined, then expect we are in ${PROJECT_DIR}/slurm
+if [[ -z "${PROJECT_DIR}" ]]; then
+    export PROJECT_DIR="$(dirname "$(pwd)")"
+fi
+
+if [ -f "${PROJECT_DIR}/init_environment_hflarge_amd.sh" ]; then
+    source "${PROJECT_DIR}/init_environment_hflarge_amd.sh"
+fi
+
+cd ${PROJECT_DIR}
+
+export PYTHONPATH=.:$PYTHONPATH
+
+# CFG=cfg/enfever/compute_pvi/compute_pvi_enfever_new.config.py
+# CFG=cfg/enfever/compute_pvi/compute_pvi_enfever_new_overfit.config.py
+CFG=cfg/enfever/compute_pvi/compute_pvi_enfever_new_calibrated.config.py
+python scripts/compute_pvi.py $CFG

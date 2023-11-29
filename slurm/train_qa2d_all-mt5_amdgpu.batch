@@ -16,9 +16,6 @@ fi
 
 cd ${PROJECT_DIR}
 
-export PYTHONPATH=src:$PYTHONPATH
-
-
 export MODEL="google/mt5-large"
 export per_device_train_batch_size=2
 export gradient_accumulation_steps=2

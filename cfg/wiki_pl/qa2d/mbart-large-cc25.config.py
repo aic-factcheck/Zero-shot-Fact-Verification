@@ -36,7 +36,7 @@ def config():
         "qg_root": QG_ROOT,
         "claim_root": CLAIM_ROOT,
         "model_name": MODEL_NAME,
-        "wiki_corpus": WIKI_CORPUS,
+        "corpus": WIKI_CORPUS,
         "splits": [
             {"name": "train", "file": Path(NER_ROOT, "train_ners.json"), "size": 10000},
             {"name": "dev", "file": Path(NER_ROOT, "dev_ners.json"), "size": 1000},

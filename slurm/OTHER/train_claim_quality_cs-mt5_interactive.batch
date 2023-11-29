@@ -1,0 +1,118 @@
+#!/bin/bash
+#SBATCH --time=4:00:00
+#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=4
+#SBATCH --partition=interactive --gres=gpu:1
+#SBATCH --mem=64G
+#SBATCH --out=../logs/cq-cs-train_mt5.%j.out
+
+# unset LMOD_ROOT
+# unset MODULESHOME
+# unset LMOD_PKG
+# unset LMOD_CMD
+# unset LMOD_DIR
+# unset FPATH
+# unset __LMOD_REF_COUNT_MODULEPATH
+# unset __LMOD_REF_COUNT__LMFILES_
+# unset _LMFILES_
+# unset _ModuleTable001_
+# unset _ModuleTable002_
+
+# source /etc/profile.d/lmod.sh
+
+# module purge
+
+# if PROJECT_DIR is not defined, then expect we are in ${PROJECT_DIR}/slurm
+if [[ -z "${PROJECT_DIR}" ]]; then
+    export PROJECT_DIR="$(dirname "$(pwd)")"
+fi
+
+if [ -f "${PROJECT_DIR}/init_environment_hflarge_amd.sh" ]; then
+    source "${PROJECT_DIR}/init_environment_hflarge_amd.sh"
+fi
+
+cd ${PROJECT_DIR}
+pwd
+
+export LANG=cs_CZ
+export LANG_SHORT=cs
+
+# export DATA_ROOT="/mnt/data/factcheck/wiki/${LANG_SHORT}/20230220/qacg"
+export DATA_ROOT="/home/drchajan/devel/python/FC/Zero-shot-Fact-Verification/data/factcheck/wiki/${LANG_SHORT}/20230220/qacg"
+export NER_DIR="PAV-ner-CNEC"
+export QG_DIR="mt5-large-cp59k"
+export QA2D_DIR="mbart-large-cc25_cp26k"
+
+# export SUFFIX= # 600 samples
+# export SUFFIX="_v2" # 998 samples
+export SUFFIX="_v3" # 1401 samples
+# export SUFFIX="_v4" # v3 balanced by subsampling
+export CLAIM_QUALITY_DIR=claim_quality${SUFFIX}
+
+export CLAIM_QUALITY_ROOT="${DATA_ROOT}/${CLAIM_QUALITY_DIR}/${NER_DIR}/${QG_DIR}/${QA2D_DIR}"
+
+echo "CLAIM_QUALITY_ROOT="${CLAIM_QUALITY_ROOT}
+
+# export MODEL="google/mt5-base"
+# export per_device_train_batch_size=4
+# export gradient_accumulation_steps=1
+
+# export MODEL_SHORT="mt5-large"
+# export MODEL_SHORT="umt5-base"
+export MODEL_SHORT="umt5-xl"    
+export MODEL="google/$MODEL_SHORT"
+export per_device_train_batch_size=2
+export gradient_accumulation_steps=2
+export IGNORE_PAD_TOKEN_FOR_LOSS=True
+
+# export MODEL="google/mt5-xl"
+# export per_device_train_batch_size=1
+# export gradient_accumulation_steps=4
+
+export EXP_DIR="cq/${MODEL}_${LANG}${SUFFIX}"
+export WANDB_NAME="CQ-${LANG_SHORT}: ${MODEL_SHORT}${SUFFIX}"
+export WANDB_PROJECT="huggingface"
+
+export EVAL_STEPS=128
+export PYTHONPATH=.:$PYTHONPATH
+
+python scripts/run_seq2seq.py \
+    --model_name_or_path $MODEL \
+    --do_train \
+    --do_eval \
+    --do_predict \
+    --train_file "$CLAIM_QUALITY_ROOT/train.jsonl" \
+    --validation_file "$CLAIM_QUALITY_ROOT/dev.jsonl"  \
+    --test_file "$CLAIM_QUALITY_ROOT/test.jsonl"  \
+    --num_beams 10 \
+    --output_dir experiments/$EXP_DIR \
+    --overwrite_output_dir \
+    --bf16 \
+    --gradient_checkpointing \
+    --per_device_train_batch_size $per_device_train_batch_size \
+    --per_device_eval_batch_size 1 \
+    --gradient_accumulation_steps $gradient_accumulation_steps \
+    --input_columns "text" \
+    --target_columns "label" \
+    --column_separator "</s>"\
+    --ignore_pad_token_for_loss $IGNORE_PAD_TOKEN_FOR_LOSS \
+    --seed 42 \
+    --label_smoothing_factor 0.1 \
+    --weight_decay 0.01 \
+    --adam_beta1 0.9 \
+    --adam_beta2 0.999 \
+    --adam_epsilon 1e-08 \
+    --learning_rate 3e-05 \
+    --lr_scheduler_type polynomial \
+    --max_grad_norm 0.1 \
+    --warmup_steps 512 \
+    --evaluation_strategy steps \
+    --eval_steps $EVAL_STEPS \
+    --save_steps $EVAL_STEPS \
+    --logging_steps $EVAL_STEPS \
+    --logging_first_step True \
+    --max_steps 16384 \
+    --predict_with_generate True \
+    --save_total_limit 10 \
+    --load_best_model_at_end True \
+    --max_source_length 1024 \
+    --max_target_length 128 \
